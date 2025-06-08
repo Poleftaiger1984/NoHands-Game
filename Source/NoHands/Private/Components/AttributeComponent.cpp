@@ -53,3 +53,27 @@ void UAttributeComponent::AddBoost(EBoostType TypeOfBoost, float BoostAmount)
 		break;
 	}
 }
+
+void UAttributeComponent::LoseAttribute(EBoostType TypeOfBoost, float AmountToLose)
+{
+	switch (TypeOfBoost)
+	{
+	case EBoostType::EBT_Health:
+	{
+		Health -= AmountToLose;
+		break;
+	}
+	case EBoostType::EBT_Stamina:
+	{
+		Stamina -= AmountToLose;
+		break;
+	}
+	case EBoostType::EBT_Money:
+	{
+		Money -= AmountToLose;
+		break;
+	}
+	default:
+		break;
+	}
+}

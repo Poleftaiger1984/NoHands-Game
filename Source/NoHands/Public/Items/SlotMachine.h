@@ -7,6 +7,7 @@
 #include "SlotMachine.generated.h"
 
 enum class ESlotSymbols : uint8;
+class USlotInterfaceComponent;
 
 USTRUCT()
 struct FReel
@@ -47,6 +48,9 @@ public:
 	ASlotMachine();
 
 	virtual void InteractAction() override;
+	virtual void SetBet(int32 PlayerBet) override;
+	virtual int32 GetWinnings() const override;
+	virtual EGameState GetGameState() const override;
 
 protected:
 	virtual void BeginPlay() override;
@@ -58,7 +62,7 @@ protected:
 	void OnSpinComplete();
 	void InitializeSymbolList(TArray<ESlotSymbols>& OutArray, ESlotSymbols Symbol, uint8 Weight);
 
-	uint8 CalculatePayout(uint8 BetInserted);
+	int32 CalculatePayout(int32 BetInserted);
 	bool IsThreeOfAKind(ESlotSymbols SymbolA, ESlotSymbols SymbolB, ESlotSymbols SymbolC);
 
 	void ClearGame();
@@ -66,11 +70,14 @@ protected:
 private:
 	//Slot basic settings and defaults
 
+	UPROPERTY(EditInstanceOnly, Category = "Game Settings | Defaults")
+	EGameState GameState;
+
 	UPROPERTY(VisibleAnywhere, Category = "Game Settings | Defaults")
 	uint8 NumOfLines = 3;
 
 	UPROPERTY(EditAnywhere, Category = "Game Settings | Defaults")
-	uint8 NumOfRows = 16; // !!To keep probabilities the same if you plan to alter the number of rows aka the reel length change the probabilties too!!
+	uint8 NumOfRows = 18; // !!To keep probabilities the same if you plan to alter the number of rows aka the reel length change the probabilties too!!
 
 	UPROPERTY(EditAnywhere, Category = "Game Settings | Defaults")
 	uint8 MinimumSpins = 30;
@@ -104,7 +111,7 @@ private:
 	uint8 WatermelonProbabality = 3;
 
 	UPROPERTY(EditAnywhere, Category = "Game Settings | Probabilities")
-	uint8 StarProbabality = 2;
+	uint8 StarProbabality = 3;
 
 	UPROPERTY(EditAnywhere, Category = "Game Settings | Probabilities")
 	uint8 BellProbabality = 2;
@@ -117,6 +124,8 @@ private:
 
 	//Payouts
 
+	int32 TotalPayout;
+
 	TArray<TArray<FIntPoint>> PayLines = {
 		{{0, 0}, {0, 1}, {0, 2}}, //Top Row
 		{{1, 0}, {1, 1}, {1, 2}}, //Middle Row
@@ -124,6 +133,16 @@ private:
 	};
 
 	ESlotSymbols WinGrid[3][3];
-	TMap<ESlotSymbols, uint8> Payouts;
+	TMap<ESlotSymbols, int32> Payouts;
+
+	//Player input
+
+	UPROPERTY(VisibleAnywhere, Category = "Game Settings | Defaults")
+	int32 Bet = 0;
+
+	//HUD
+
+	UPROPERTY(VisibleAnywhere)
+	TObjectPtr<USlotInterfaceComponent> SlotInterface;
 
 };

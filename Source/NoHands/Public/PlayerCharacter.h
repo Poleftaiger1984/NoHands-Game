@@ -14,6 +14,7 @@ class UInputMappingContext;
 class UInputAction;
 class UAttributeComponent;
 class AASimpleInteractable;
+class UNoHandsOverlay;
 
 enum class EGameState : uint8;
 
@@ -113,9 +114,12 @@ protected:
 	EGameState GameState;
 
 	UPROPERTY(EditInstanceOnly, Category = "Games")
-	uint8 GameBet;
+	int32 GameBet = 0;
 
 private:
+	void InitHUDOverlay();
+	void SetHUDAttributes();
+
 
 	/* Character Components */
 	UPROPERTY(VisibleAnywhere)
@@ -126,5 +130,9 @@ private:
 
 	UPROPERTY(BlueprintReadWrite, VisibleAnywhere, Category = "Montages", meta = (AllowPrivateAccess = "true"))
 	ECharacterState CharacterState;
+
+	//HUD 
+
+	TObjectPtr<UNoHandsOverlay> HUDOverlay;
 
 };

@@ -4,12 +4,18 @@
 #include "Items/SlotMachine.h"
 #include "Items/GameStates.h"
 #include "Algo/RandomShuffle.h"
+#include "LatentActions.h"
+#include "Kismet/GameplayStatics.h"
+#include "Components/SlotInterfaceComponent.h"
 
 ASlotMachine::ASlotMachine()
 {
 	ItemName = "Slot Machine";
 	Symbols.SetNum(NumOfRows);
 	GameState = EGameState::EGS_Idle;
+
+	SlotInterface = CreateDefaultSubobject<USlotInterfaceComponent>(TEXT("Slot Interface"));
+	SlotInterface->SetupAttachment(GetRootComponent());
 
 	InitializeSymbolList(Symbols, ESlotSymbols::ESS_Cherry, CherryProbabality);
 	InitializeSymbolList(Symbols, ESlotSymbols::ESS_Lemon, LemonProbabality);
@@ -42,12 +48,36 @@ ASlotMachine::ASlotMachine()
 
 void ASlotMachine::InteractAction()
 {
-	
 	if (Bet > 0)
+	{
+		GameState = EGameState::EGS_Playing;
+	}		
+	
+	if (GameState == EGameState::EGS_Playing)
 	{
 		StartSpin();
 	}
-	
+
+	if (GameState == EGameState::EGS_GameDone)
+	{
+		GameState = EGameState::EGS_Idle;
+		TotalPayout = 0;
+	}
+}
+
+void ASlotMachine::SetBet(int32 PlayerBet)
+{
+	Bet = PlayerBet;
+}
+
+int32 ASlotMachine::GetWinnings() const
+{
+	return TotalPayout;
+}
+
+EGameState ASlotMachine::GetGameState() const
+{
+	return GameState;
 }
 
 void ASlotMachine::BeginPlay()
@@ -90,6 +120,8 @@ void ASlotMachine::StartSpin()
 void ASlotMachine::TickSpinAllReels()
 {
 	bool bAnyReelStillSpinning = false;
+	TArray<FString> VisibleSymbols;
+	VisibleSymbols.SetNum(9);
 
 	for (int Col = 0; Col < NumOfLines; Col++)
 	{
@@ -109,6 +141,35 @@ void ASlotMachine::TickSpinAllReels()
 			FString Line = FString::Printf(TEXT("Reel: %d / Row: %d / Symbol: %s"), Col, Row, *SymbolToString(Visible[Row]));
 
 			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Blue, Line);
+		}
+
+		if (Col == 0)
+		{
+			for (int Row = 0; Row < Visible.Num(); Row++)
+			{
+				VisibleSymbols.EmplaceAt(Row, *SymbolToString(Visible[Row]));
+			}
+		}
+
+		if (Col == 1)
+		{
+			for (int Row = 3; Row < Visible.Num() + 3; Row++)
+			{
+				VisibleSymbols.EmplaceAt(Row, *SymbolToString(Visible[Row - 3]));
+			}
+		}
+
+		if (Col == 2)
+		{
+			for (int Row = 6; Row < Visible.Num() + 6; Row++)
+			{
+				VisibleSymbols.EmplaceAt(Row, *SymbolToString(Visible[Row - 6]));
+			}
+		}
+
+		if (SlotInterface)
+		{
+			SlotInterface->SetVisibleSymbols(VisibleSymbols);
 		}
 
 		//Check if reel should stop
@@ -161,7 +222,7 @@ void ASlotMachine::InitializeSymbolList(TArray<ESlotSymbols>& OutArray, ESlotSym
 	}
 }
 
-uint8 ASlotMachine::CalculatePayout(uint8 BetInserted)
+int32 ASlotMachine::CalculatePayout(int32 BetInserted)
 {
 	TotalPayout = 0;
 	
@@ -181,7 +242,7 @@ uint8 ASlotMachine::CalculatePayout(uint8 BetInserted)
 
 		if (bAllMatch)
 		{
-			uint8 Win = Payouts.Contains(FirstSymbol) ? Payouts[FirstSymbol] : 0;
+			int32 Win = Payouts.Contains(FirstSymbol) ? Payouts[FirstSymbol] : 0;
 			TotalPayout += Win * BetInserted;
 
 			GEngine->AddOnScreenDebugMessage(-1, 15.f, FColor::Yellow,
@@ -198,14 +259,18 @@ bool ASlotMachine::IsThreeOfAKind(ESlotSymbols SymbolA, ESlotSymbols SymbolB, ES
 
 void ASlotMachine::ClearGame()
 {
-	GameState = EGameState::EGS_Idle;
 	Bet = 0;
+
+	if (TotalPayout == 0)
+	{
+		GameState = EGameState::EGS_Idle;
+	}
+	else GameState = EGameState::EGS_GameDone;
 }
 
 void FReel::InitializeReel(const TArray<ESlotSymbols>& WeightedSymbols)
 {
-
-	for (int Row = 2; Row < ReelRows; Row++)
+	for (int Row = 0; Row < ReelRows; Row++)
 	{
 		int Index = FMath::RandRange(0, WeightedSymbols.Num() - 1);
 		Rows[Row] = WeightedSymbols[Index];

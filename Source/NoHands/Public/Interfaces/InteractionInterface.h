@@ -6,6 +6,8 @@
 #include "UObject/Interface.h"
 #include "InteractionInterface.generated.h"
 
+enum class EGameState : uint8;
+
 // This class does not need to be modified.
 UINTERFACE(MinimalAPI)
 class UInteractionInterface : public UInterface
@@ -23,4 +25,7 @@ class NOHANDS_API IInteractionInterface
 	// Add interface functions to this class. This is the class that will be inherited to implement this interface.
 public:
 	virtual void InteractAction();
+	virtual void SetBet(int32 PlayerBet);
+	virtual int32 GetWinnings() const;
+	virtual EGameState GetGameState() const;
 };

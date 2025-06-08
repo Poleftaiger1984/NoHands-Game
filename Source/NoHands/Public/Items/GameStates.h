@@ -5,7 +5,8 @@ enum class EGameState : uint8
 {
 	EGS_Off UMETA(DisplayName = "Off"),
 	EGS_Idle UMETA(DisplayName = "Idle"),
-	EGS_Playing UMETA(DisplayName = "Playing")
+	EGS_Playing UMETA(DisplayName = "Playing"),
+	EGS_GameDone UMETA(DisplayName = "Game Done")
 };
 
 UENUM(BlueprintType)

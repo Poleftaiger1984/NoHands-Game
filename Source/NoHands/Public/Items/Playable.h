@@ -17,22 +17,6 @@ private:
 	UPROPERTY(EditAnywhere, Category = "Game Settings | Defaults")
 	float GameCost = 5;
 
-protected:
-
-	UPROPERTY(EditInstanceOnly, Category = "Game Settings | Defaults")
-	EGameState GameState;
-
-	//Player input
-
-	uint8 Bet = 0;
-
-	//Payouts
-
-	uint8 TotalPayout;
-
 public:
 	FORCEINLINE float GetGameCost() const { return GameCost; }
-	FORCEINLINE void SetBet(uint8 PlayerBet) { Bet = PlayerBet; GameState = EGameState::EGS_Playing; }
-	FORCEINLINE uint8 GetWinnings() const { return TotalPayout; }
-	FORCEINLINE EGameState GetGameState() const { return GameState; }
 };

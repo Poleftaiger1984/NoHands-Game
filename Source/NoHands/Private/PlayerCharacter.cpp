@@ -13,6 +13,8 @@
 #include "Items/Pickup.h"
 #include "Items/Playable.h"
 #include "Items/GameStates.h"
+#include "HUD/NoHandsOverlay.h"
+#include "NoHandsHUD.h"
 
 #include "Components/InputComponent.h"
 #include "EnhancedInputComponent.h"
@@ -138,6 +140,8 @@ void APlayerCharacter::BeginPlay()
 	}
 
 	Tags.Add(FName("Player"));
+
+	InitHUDOverlay();
 }
 
 void APlayerCharacter::Move(const FInputActionValue& Value)
@@ -220,24 +224,39 @@ void APlayerCharacter::EKeyPressed()
 			if (SimpleInteractable->ActorHasTag("BoostType"))
 			{
 				APickup* Pickup = Cast<APickup>(InteractionHit.GetActor()); // We have a pickup in view
-				Attributes->AddBoost(Pickup->GetTypeOfBoost(), Pickup->GetAmount());
+				EBoostType BoostType = Pickup->GetTypeOfBoost();
+				Attributes->AddBoost(BoostType, Pickup->GetAmount());
 				Pickup->InteractAction();
+				
+				switch (BoostType)
+				{
+					case EBoostType::EBT_Health:
+						//AddHealth
+						break;
+					case EBoostType::EBT_Money:
+						HUDOverlay->SetMoney(Attributes->GetMoney());
+						break;
+					default: break;
+				}
 			}
 			else if (SimpleInteractable->ActorHasTag("Game") && Attributes->GetMoney() > 0)
 			{
 				APlayable* Playable = Cast<APlayable>(InteractionHit.GetActor()); // We have a game in view
-				Attributes->AddBoost(EBoostType::EBT_Money, -Playable->GetGameCost());
 				GameState = Playable->GetGameState();
 
 				if (GameState == EGameState::EGS_Idle)
 				{
+					Attributes->LoseAttribute(EBoostType::EBT_Money, GameBet);
+					HUDOverlay->SetMoney(Attributes->GetMoney());
 					Playable->SetBet(GameBet);
-				}
-				if (GameState == EGameState::EGS_Playing)
-				{
 					Playable->InteractAction();
 				}
-				
+				if (GameState == EGameState::EGS_GameDone)
+				{
+					Attributes->AddBoost(EBoostType::EBT_Money,Playable->GetWinnings());
+					HUDOverlay->SetMoney(Attributes->GetMoney());
+					Playable->InteractAction();
+				}
 			}
 		}
 	}
@@ -274,4 +293,26 @@ void APlayerCharacter::SetItemLookedAt(FHitResult& LookTraceResult)
 bool APlayerCharacter::CanSprint()
 {
 	return Attributes && Attributes->GetStamina() > Attributes->GetSprintCost() && CharacterState != ECharacterState::ECS_Sprinting && CharacterState != ECharacterState::ECS_Crouching;
+}
+
+void APlayerCharacter::InitHUDOverlay()
+{
+	APlayerController* PlayerController = Cast<APlayerController>(GetController());
+	if (PlayerController)
+	{
+		ANoHandsHUD* NoHandsHUD = Cast<ANoHandsHUD>(PlayerController->GetHUD());
+		if (NoHandsHUD)
+		{
+			HUDOverlay = NoHandsHUD->GetOverlay();
+			if (HUDOverlay && Attributes)
+			{
+				HUDOverlay->SetMoney(Attributes->GetMoney());
+			}
+		}
+	}
+
+}
+
+void APlayerCharacter::SetHUDAttributes()
+{
 }

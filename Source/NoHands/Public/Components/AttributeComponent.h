@@ -20,6 +20,7 @@ public:
 	void UseStamina(float StaminaCost, float DeltaTime);
 	void RegenStamina(float DeltaTime);
 	void AddBoost(EBoostType TypeOfBoost, float BoostAmount);
+	void LoseAttribute(EBoostType TypeOfBoost, float AmountToLose);
 
 protected:
 	virtual void BeginPlay() override;
