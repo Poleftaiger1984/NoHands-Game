@@ -96,10 +96,11 @@ private:
 	uint8 MaxSpinStepsPerReel = FMath::RandRange(MinimumSpins, MaximumSpins);
 
 	TArray<FReel> Reels;
-	TArray<ESlotSymbols> Symbols;
 	FTimerHandle ReelSpinTimerHandle;
 
 	//Symbol Weights 
+	TArray<ESlotSymbols> WeightedSymbolPool;
+	TArray<ESlotSymbols> AllSlotSymbols;
 	
 	UPROPERTY(EditAnywhere, Category = "Game Settings | Probabilities")
 	uint8 CherryProbabality = 3;

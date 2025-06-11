@@ -244,7 +244,7 @@ void APlayerCharacter::EKeyPressed()
 				APlayable* Playable = Cast<APlayable>(InteractionHit.GetActor()); // We have a game in view
 				GameState = Playable->GetGameState();
 
-				if (GameState == EGameState::EGS_Idle)
+				if (GameState == EGameState::EGS_Idle && GameBet >= Attributes->GetMoney())
 				{
 					Attributes->LoseAttribute(EBoostType::EBT_Money, GameBet);
 					HUDOverlay->SetMoney(Attributes->GetMoney());
@@ -310,9 +310,4 @@ void APlayerCharacter::InitHUDOverlay()
 			}
 		}
 	}
-
-}
-
-void APlayerCharacter::SetHUDAttributes()
-{
 }

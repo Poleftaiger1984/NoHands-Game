@@ -118,8 +118,6 @@ protected:
 
 private:
 	void InitHUDOverlay();
-	void SetHUDAttributes();
-
 
 	/* Character Components */
 	UPROPERTY(VisibleAnywhere)

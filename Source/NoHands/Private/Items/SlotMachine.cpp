@@ -11,37 +11,56 @@
 ASlotMachine::ASlotMachine()
 {
 	ItemName = "Slot Machine";
-	Symbols.SetNum(NumOfRows);
+	WeightedSymbolPool.SetNum(NumOfRows);
 	GameState = EGameState::EGS_Idle;
 
 	SlotInterface = CreateDefaultSubobject<USlotInterfaceComponent>(TEXT("Slot Interface"));
 	SlotInterface->SetupAttachment(GetRootComponent());
 
-	InitializeSymbolList(Symbols, ESlotSymbols::ESS_Cherry, CherryProbabality);
-	InitializeSymbolList(Symbols, ESlotSymbols::ESS_Lemon, LemonProbabality);
-	InitializeSymbolList(Symbols, ESlotSymbols::ESS_Watermelon, WatermelonProbabality);
-	InitializeSymbolList(Symbols, ESlotSymbols::ESS_Star, StarProbabality);
-	InitializeSymbolList(Symbols, ESlotSymbols::ESS_Bell, BellProbabality);
-	InitializeSymbolList(Symbols, ESlotSymbols::ESS_Diamond, DiamondProbabality);
-	InitializeSymbolList(Symbols, ESlotSymbols::ESS_Seven, SevenProbabality);
+	InitializeSymbolList(WeightedSymbolPool, ESlotSymbols::ESS_Cherry, CherryProbabality);
+	InitializeSymbolList(WeightedSymbolPool, ESlotSymbols::ESS_Lemon, LemonProbabality);
+	InitializeSymbolList(WeightedSymbolPool, ESlotSymbols::ESS_Watermelon, WatermelonProbabality);
+	InitializeSymbolList(WeightedSymbolPool, ESlotSymbols::ESS_Star, StarProbabality);
+	InitializeSymbolList(WeightedSymbolPool, ESlotSymbols::ESS_Bell, BellProbabality);
+	InitializeSymbolList(WeightedSymbolPool, ESlotSymbols::ESS_Diamond, DiamondProbabality);
+	InitializeSymbolList(WeightedSymbolPool, ESlotSymbols::ESS_Seven, SevenProbabality);
 
 	Payouts = {
 		{ESlotSymbols::ESS_Seven,	  100},
 		{ESlotSymbols::ESS_Diamond,	   50},
 		{ESlotSymbols::ESS_Star,	   40},
 		{ESlotSymbols::ESS_Bell,	   20},
-		{ESlotSymbols::ESS_Watermelon, 16},
-		{ESlotSymbols::ESS_Lemon,	   10},
-		{ESlotSymbols::ESS_Cherry,		8}
+		{ESlotSymbols::ESS_Watermelon, 10},
+		{ESlotSymbols::ESS_Lemon,	    8},
+		{ESlotSymbols::ESS_Cherry,      2}
 	};
 
-	TArray<ESlotSymbols> Shuffled = Symbols;
-	Algo::RandomShuffle(Shuffled);
+	AllSlotSymbols = {
+		ESlotSymbols::ESS_Cherry,
+		ESlotSymbols::ESS_Lemon,
+		ESlotSymbols::ESS_Watermelon,
+		ESlotSymbols::ESS_Star,
+		ESlotSymbols::ESS_Bell,
+		ESlotSymbols::ESS_Diamond,
+		ESlotSymbols::ESS_Seven
+	};
+
+	Algo::RandomShuffle(AllSlotSymbols);
+	Algo::RandomShuffle(WeightedSymbolPool);
+
+	for (const ESlotSymbols& Symbol : AllSlotSymbols)
+	{
+		int32 InsertIndex = FMath::RandRange(0, WeightedSymbolPool.Num());
+		WeightedSymbolPool.Insert(Symbol, InsertIndex);
+	}
+
+	TArray<ESlotSymbols> ShuffledPool = WeightedSymbolPool;
+	Algo::RandomShuffle(ShuffledPool);
 
 	for (int Col = 0; Col < NumOfLines; Col++)
 	{
 		Reels.Emplace(FReel(NumOfRows));
-		Reels[Col].InitializeReel(Shuffled);
+		Reels[Col].InitializeReel(ShuffledPool);
 	}
 
 }
@@ -120,8 +139,8 @@ void ASlotMachine::StartSpin()
 void ASlotMachine::TickSpinAllReels()
 {
 	bool bAnyReelStillSpinning = false;
-	TArray<FString> VisibleSymbols;
-	VisibleSymbols.SetNum(9);
+	TArray<ESlotSymbols> VisibleSymbols;
+	VisibleSymbols.SetNum(3);
 
 	for (int Col = 0; Col < NumOfLines; Col++)
 	{
@@ -134,42 +153,44 @@ void ASlotMachine::TickSpinAllReels()
 		Reels[Col].ReelStep();
 		SpinSteps[Col]++;
 
-		TArray<ESlotSymbols> Visible = Reels[Col].GetVisibleWindow();
-
-		for (int Row = 0; Row < Visible.Num(); Row++)
-		{
-			FString Line = FString::Printf(TEXT("Reel: %d / Row: %d / Symbol: %s"), Col, Row, *SymbolToString(Visible[Row]));
-
-			GEngine->AddOnScreenDebugMessage(-1, 5.f, FColor::Blue, Line);
-		}
+		//For each reel send their symbols over to the interface as they are turning
+		//Use the same array overwritten for each reel
+		
 
 		if (Col == 0)
 		{
-			for (int Row = 0; Row < Visible.Num(); Row++)
+			for (int Row = 0; Row < VisibleSymbols.Num(); Row++)
 			{
-				VisibleSymbols.EmplaceAt(Row, *SymbolToString(Visible[Row]));
+				VisibleSymbols[Row] = Reels[Col].GetVisibleWindow()[Row];
+				if (SlotInterface)
+				{
+					SlotInterface->SetVisibleSymbols(Col,VisibleSymbols);
+				}
 			}
 		}
 
 		if (Col == 1)
 		{
-			for (int Row = 3; Row < Visible.Num() + 3; Row++)
+			for (int Row = 0; Row < VisibleSymbols.Num(); Row++)
 			{
-				VisibleSymbols.EmplaceAt(Row, *SymbolToString(Visible[Row - 3]));
+				VisibleSymbols[Row] = Reels[Col].GetVisibleWindow()[Row];
+				if (SlotInterface)
+				{
+					SlotInterface->SetVisibleSymbols(Col, VisibleSymbols);
+				}
 			}
 		}
 
 		if (Col == 2)
 		{
-			for (int Row = 6; Row < Visible.Num() + 6; Row++)
+			for (int Row = 0; Row < VisibleSymbols.Num(); Row++)
 			{
-				VisibleSymbols.EmplaceAt(Row, *SymbolToString(Visible[Row - 6]));
+				VisibleSymbols[Row] = Reels[Col].GetVisibleWindow()[Row];
+				if (SlotInterface)
+				{
+					SlotInterface->SetVisibleSymbols(Col, VisibleSymbols);
+				}
 			}
-		}
-
-		if (SlotInterface)
-		{
-			SlotInterface->SetVisibleSymbols(VisibleSymbols);
 		}
 
 		//Check if reel should stop
@@ -201,7 +222,7 @@ void ASlotMachine::OnSpinComplete()
 
 			Line += SymbolToString(WinGrid[Row][Col]);
 
-			if (Col < 2)
+			if (Col < 3)
 			{
 				Line += TEXT(" | ");
 			}
@@ -270,9 +291,25 @@ void ASlotMachine::ClearGame()
 
 void FReel::InitializeReel(const TArray<ESlotSymbols>& WeightedSymbols)
 {
+	TArray<ESlotSymbols> ReelSymbols = WeightedSymbols;
+
+	//Shuffle once
+	Algo::RandomShuffle(ReelSymbols);
+
+	ESlotSymbols LastSymbol = ESlotSymbols::ESS_Invalid;
 	for (int Row = 0; Row < ReelRows; Row++)
 	{
-		int Index = FMath::RandRange(0, WeightedSymbols.Num() - 1);
-		Rows[Row] = WeightedSymbols[Index];
+
+		//Try to find different symbol from the last one
+		for (int Attempt = 0; Attempt < 5; Attempt++)
+		{
+			int Index = FMath::RandRange(0, WeightedSymbols.Num() - 1);
+			if (ReelSymbols[Index] != LastSymbol)
+			{
+				Rows[Row] = WeightedSymbols[Index];
+				LastSymbol = Rows[Row];
+				break;
+			}
+		}
 	}
 }

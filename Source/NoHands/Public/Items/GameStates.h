@@ -18,5 +18,6 @@ enum class ESlotSymbols : uint8
 	ESS_Watermelon UMETA(DisplayName = "Watermelon"),
 	ESS_Star UMETA(DisplayName = "Star"),
 	ESS_Diamond UMETA(DisplayName = "Diamond"),
-	ESS_Seven UMETA(DisplayName = "Seven")
+	ESS_Seven UMETA(DisplayName = "Seven"),
+	ESS_Invalid UMETA(DisplayName = "Invalid")
 };
