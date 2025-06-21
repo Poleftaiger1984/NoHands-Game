@@ -103,6 +103,7 @@ void ASlotMachine::BeginPlay()
 {
 	Super::BeginPlay();
 	Tags.Add("Game");
+	Tags.Add("HoldInteract");
 }
 
 FString ASlotMachine::SymbolToString(ESlotSymbols Symbol)

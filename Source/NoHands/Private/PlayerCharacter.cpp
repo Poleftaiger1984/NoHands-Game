@@ -7,6 +7,7 @@
 #include "Components/AttributeComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Kismet/KismetSystemLibrary.h"
+#include "Kismet/GameplayStatics.h"
 
 #include "Interfaces/InteractionInterface.h"
 #include "Items/ASimpleInteractable.h"
@@ -67,7 +68,14 @@ void APlayerCharacter::SetupPlayerInputComponent(UInputComponent* PlayerInputCom
 		EnhancedInputComponent->BindAction(SprintAction, ETriggerEvent::Completed, this, &APlayerCharacter::FinishedSprint);
 
 		//Pressing the E Key
-		EnhancedInputComponent->BindAction(EKeyPressedAction, ETriggerEvent::Triggered, this, &APlayerCharacter::EKeyPressed);
+		EnhancedInputComponent->BindAction(InteractionAction, ETriggerEvent::Triggered, this, &APlayerCharacter::Interaction);
+		
+		//Holding the E Key
+		EnhancedInputComponent->BindAction(InteractionHeldAction, ETriggerEvent::Started, this, &APlayerCharacter::OnInteractHoldStarted);
+		EnhancedInputComponent->BindAction(InteractionHeldAction, ETriggerEvent::Triggered, this, &APlayerCharacter::OnInteractHoldTriggered);
+		EnhancedInputComponent->BindAction(InteractionHeldAction, ETriggerEvent::Completed, this, &APlayerCharacter::OnInteractHoldCompleted);
+		EnhancedInputComponent->BindAction(InteractionHeldAction, ETriggerEvent::Canceled, this, &APlayerCharacter::OnInteractHoldCanceled);
+
 	}
 
 }
@@ -86,13 +94,14 @@ void APlayerCharacter::Jump()
 void APlayerCharacter::Tick(float DeltaTime)
 {
 	Super::Tick(DeltaTime);
-
-	FString Message = FString::SanitizeFloat(Attributes->GetMoney());
-
-	GEngine->AddOnScreenDebugMessage(1, 100, FColor::Red, Message);
-
 	InteractionTrace(InteractionHit);
-	StaminaHandler(DeltaTime);
+		
+	InteractionOverlayAlignment();
+	
+	if (Attributes)
+	{
+		StaminaHandler(DeltaTime);
+	}
 
 	if (GetVelocity().Z != 0)
 	{
@@ -107,6 +116,36 @@ void APlayerCharacter::Tick(float DeltaTime)
 	if (JumpCounter == 0 && bIsMidair)
 	{
 		JumpCounter = 1;
+	}
+}
+
+void APlayerCharacter::InteractionOverlayAlignment()
+{
+	FVector ImpactPoint = InteractionHit.ImpactPoint;
+	FVector Normal = InteractionHit.ImpactNormal;
+	if (APlayerController* PlayerController = UGameplayStatics::GetPlayerController(this, 0))
+	{
+		if (ItemInView)
+		{
+			if (PlayerController->PlayerCameraManager && InteractionHit.IsValidBlockingHit())
+			{
+				CameraLocation = PlayerController->PlayerCameraManager->GetCameraLocation();
+				FVector Direction = CameraLocation - ImpactPoint;
+				Direction.Normalize();
+
+				//MakeFromX turns the widget around to look at the camera
+				FRotator LookAtRotation = FRotationMatrix::MakeFromX(Direction).Rotator();
+
+				FVector LookAtLocation = ImpactPoint + (Normal * InteractUIOffset);
+				ItemInView->UpdateOverlay(LookAtRotation, LookAtLocation, true);
+			}
+			else if (LastSeenActor && LastSeenActor != InteractionHit.GetActor())
+			//Stuck here sometimes when actors are close and crosshair moves to a new actor right next to it, the previous actor's overlay doesnt get deactivated
+			{
+				ItemInView->UpdateOverlay(FRotator::ZeroRotator, FVector::ZeroVector, false);
+			}
+		}
+		
 	}
 }
 
@@ -213,7 +252,49 @@ void APlayerCharacter::FinishedSprint()
 	}
 }
 
-void APlayerCharacter::EKeyPressed()
+void APlayerCharacter::OnInteractHoldStarted()
+{
+}
+
+void APlayerCharacter::OnInteractHoldTriggered()
+{
+	AASimpleInteractable* SimpleInteractable = Cast<AASimpleInteractable>(InteractionHit.GetActor());
+	if (SimpleInteractable)
+	{
+		if (SimpleInteractable->ActorHasTag("HoldInteract"))
+		{
+			if (SimpleInteractable->ActorHasTag("Game") && Attributes->GetMoney() > 0)
+			{
+				APlayable* Playable = Cast<APlayable>(InteractionHit.GetActor()); // We have a game in view
+				GameState = Playable->GetGameState();
+
+				if (GameState == EGameState::EGS_Idle)
+				{
+					Attributes->LoseAttribute(EBoostType::EBT_Money, GameBet);
+					HUDOverlay->SetMoney(Attributes->GetMoney());
+					Playable->SetBet(GameBet);
+					Playable->InteractAction();
+				}
+				if (GameState == EGameState::EGS_GameDone)
+				{
+					Attributes->AddBoost(EBoostType::EBT_Money, Playable->GetWinnings());
+					HUDOverlay->SetMoney(Attributes->GetMoney());
+					Playable->InteractAction();
+				}
+			}
+		}
+	}
+}
+
+void APlayerCharacter::OnInteractHoldCompleted()
+{
+}
+
+void APlayerCharacter::OnInteractHoldCanceled()
+{
+}
+
+void APlayerCharacter::Interaction()
 {
 	IInteractionInterface* InteractionInterface = Cast<IInteractionInterface>(InteractionHit.GetActor()); // We have an item in view
 	if (InteractionInterface)
@@ -239,53 +320,37 @@ void APlayerCharacter::EKeyPressed()
 					default: break;
 				}
 			}
-			else if (SimpleInteractable->ActorHasTag("Game") && Attributes->GetMoney() > 0)
-			{
-				APlayable* Playable = Cast<APlayable>(InteractionHit.GetActor()); // We have a game in view
-				GameState = Playable->GetGameState();
-
-				if (GameState == EGameState::EGS_Idle && GameBet >= Attributes->GetMoney())
-				{
-					Attributes->LoseAttribute(EBoostType::EBT_Money, GameBet);
-					HUDOverlay->SetMoney(Attributes->GetMoney());
-					Playable->SetBet(GameBet);
-					Playable->InteractAction();
-				}
-				if (GameState == EGameState::EGS_GameDone)
-				{
-					Attributes->AddBoost(EBoostType::EBT_Money,Playable->GetWinnings());
-					HUDOverlay->SetMoney(Attributes->GetMoney());
-					Playable->InteractAction();
-				}
-			}
 		}
 	}
 }
 
 void APlayerCharacter::InteractionTrace(FHitResult& SphereHitResult)
 {
-	const FVector Start = FirstPersonCamera->GetComponentLocation();
-	const FVector End = Start + (FirstPersonCamera->GetForwardVector() * InteractRange);
-
-	if (UKismetSystemLibrary::SphereTraceSingle(this, Start, End, CrosshairRadius, ETraceTypeQuery::TraceTypeQuery1, false, ActorsToIgnore, bShowInteractionDebug ? EDrawDebugTrace::ForDuration : EDrawDebugTrace::None, SphereHitResult, true))
+	if (FirstPersonCamera)
 	{
-		SetItemLookedAt(InteractionHit);
+		const FVector Start = FirstPersonCamera->GetComponentLocation();
+		const FVector End = Start + (FirstPersonCamera->GetForwardVector() * InteractRange);
+
+		if (UKismetSystemLibrary::SphereTraceSingle(this, Start, End, CrosshairRadius, ETraceTypeQuery::TraceTypeQuery1, false, ActorsToIgnore, bShowInteractionDebug ? EDrawDebugTrace::ForDuration : EDrawDebugTrace::None, SphereHitResult, true))
+		{
+			SetItemLookedAt(InteractionHit);
+		}
 	}
+	
 }
 
 void APlayerCharacter::SetItemLookedAt(FHitResult& LookTraceResult)
 {
 	TObjectPtr<AActor> HitActor = LookTraceResult.GetActor();
-	if (HitActor != LastSeenActor)
+	if (HitActor != LastSeenActor || !LookTraceResult.IsValidBlockingHit())
 	{
 		//The looked at object has changed
 		LastSeenActor = HitActor;
-		ItemInView = nullptr;
 
-		if (HitActor && HitActor->IsA<AASimpleInteractable>())
+		if (LastSeenActor && LastSeenActor->IsA<AASimpleInteractable>())
 		{
-			ItemInView = Cast<AASimpleInteractable>(HitActor); //Current Item Looked At
-			UE_LOG(LogTemp, Warning, TEXT("%s"), *ItemInView.GetName());
+			ItemInView = Cast<AASimpleInteractable>(LastSeenActor); //Current Item Looked At
+			GEngine->AddOnScreenDebugMessage(1, 2.f, FColor::Blue, ItemInView->GetItemName().ToString());
 		}
 	}
 }

@@ -30,6 +30,8 @@ public:
 
 	virtual void Tick(float DeltaTime) override;
 
+	void InteractionOverlayAlignment();
+
 	void StaminaHandler(float DeltaTime);
 
 protected:
@@ -41,12 +43,17 @@ protected:
 	void Crouch();	
 	void Sprint();
 	void FinishedSprint();
-	void EKeyPressed();
+	void OnInteractHoldStarted();
+	void OnInteractHoldTriggered();
+	void OnInteractHoldCompleted();
+	void OnInteractHoldCanceled();
+	void Interaction();
 
 	void InteractionTrace(FHitResult& SphereHitResult);
 	void SetItemLookedAt(FHitResult& LookTraceResult);
 
 	bool CanSprint();
+	/* Callbacks for input */
 
 
 	/* Input Actions */
@@ -69,7 +76,11 @@ protected:
 	TObjectPtr<UInputAction> SprintAction;
 
 	UPROPERTY(EditAnywhere, Category = "Input")
-	TObjectPtr<UInputAction> EKeyPressedAction;
+	TObjectPtr<UInputAction> InteractionAction;
+
+	UPROPERTY(EditAnywhere, Category = "Input")
+	TObjectPtr<UInputAction> InteractionHeldAction;
+	/* Input Actions */
 
 	/* Movement Variables */
 	UPROPERTY(VisibleAnywhere)
@@ -92,6 +103,7 @@ protected:
 
 	UPROPERTY(VisibleInstanceOnly)
 	bool bIsMidair = false;
+	/* Movement Variables */
 
 	/* Interaction Variables */
 	FHitResult InteractionHit;
@@ -109,12 +121,19 @@ protected:
 
 	UPROPERTY(EditAnywhere, Category = "Interaction")
 	bool bShowInteractionDebug = false;
+	/* Interaction Variables */
 
 	/* Game Variables */
 	EGameState GameState;
 
-	UPROPERTY(EditInstanceOnly, Category = "Games")
+	UPROPERTY(EditAnywhere, Category = "Games")
 	int32 GameBet = 0;
+	/* Game Variables */
+
+	/* HUD Variables */
+	UPROPERTY(EditAnywhere, Category = "UI")
+	float InteractUIOffset = 10.f;
+	/* HUD Variables */
 
 private:
 	void InitHUDOverlay();
@@ -128,9 +147,14 @@ private:
 
 	UPROPERTY(BlueprintReadWrite, VisibleAnywhere, Category = "Montages", meta = (AllowPrivateAccess = "true"))
 	ECharacterState CharacterState;
+	/* Character Components */
 
-	//HUD 
+	/* HUD */
+	FRotator CameraRotation;
+	FVector CameraLocation;
 
+	FTimerHandle InteractTimerHandle;
 	TObjectPtr<UNoHandsOverlay> HUDOverlay;
+	/* HUD */
 
 };

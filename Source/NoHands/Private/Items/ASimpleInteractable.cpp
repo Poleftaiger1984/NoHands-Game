@@ -2,6 +2,7 @@
 
 
 #include "Items/ASimpleInteractable.h"
+#include "Components/InterctableOverlayComponent.h"
 
 AASimpleInteractable::AASimpleInteractable()
 {
@@ -11,6 +12,9 @@ AASimpleInteractable::AASimpleInteractable()
 	ItemMesh->SetCollisionResponseToAllChannels(ECollisionResponse::ECR_Ignore);
 	ItemMesh->SetCollisionResponseToChannel(ECollisionChannel::ECC_Visibility, ECollisionResponse::ECR_Block);
 	RootComponent = ItemMesh;
+
+	InteractionOverlay = CreateDefaultSubobject<UInterctableOverlayComponent>(TEXT("Interaction Overlay"));
+	InteractionOverlay->SetupAttachment(GetRootComponent());
 
 	ItemMesh->SetSimulatePhysics(false);
 	ItemName = "Default";
@@ -22,11 +26,41 @@ void AASimpleInteractable::Tick(float DeltaTime)
 
 }
 
-void AASimpleInteractable::BeginPlay()
+void AASimpleInteractable::UpdateOverlay(const FRotator& NewRotation, const FVector& NewLocation, bool bIsBeingLookedAt)
 {
-	Super::BeginPlay();
-	
+	if (bIsBeingLookedAt && InteractionOverlay)
+	{
+		ShowOverlay();
+		InteractionOverlay->SetRotation(NewRotation);
+		InteractionOverlay->SetLocation(NewLocation);
+	}
+	else
+	{
+		HideOverlay();
+	}
 }
 
+void AASimpleInteractable::BeginPlay()
+{
+	Super::BeginPlay();	
+	Tags.Add(TEXT("Interactable"));
+}
 
+void AASimpleInteractable::HideOverlay()
+{
+	if (InteractionOverlay)
+	{
+		InteractionOverlay->SetVisibility(false);
+	}
+}
+
+void AASimpleInteractable::ShowOverlay()
+{
+	if (InteractionOverlay)
+	{
+		InteractionOverlay->SetItemName(ItemName);
+		InteractionOverlay->DisplayItemName();
+		InteractionOverlay->SetVisibility(true);
+	}
+}
 
