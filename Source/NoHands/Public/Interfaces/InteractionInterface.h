@@ -26,6 +26,7 @@ class NOHANDS_API IInteractionInterface
 public:
 	virtual void InteractAction();
 	virtual void SetBet(int32 PlayerBet);
+	virtual void SetPlayerLuck(int32 PlayerLuck);
 	virtual int32 GetWinnings() const;
 	virtual EGameState GetGameState() const;
 };

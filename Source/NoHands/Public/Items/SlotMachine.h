@@ -23,6 +23,8 @@ public:
 	}
 
 	void InitializeReel(const TArray<ESlotSymbols>& WeightedSymbols);
+	uint8 GetStepsToParticularSymbol(ESlotSymbols SymbolLookingFor, uint8 StepsUntilNow) const;
+
 
 private:
 
@@ -37,6 +39,7 @@ public:
 	FORCEINLINE int GetStartIndex() const { return ReelStartIndex; }
 	FORCEINLINE TArray<ESlotSymbols> GetVisibleWindow() const { return { GetSymbolAt(ReelStartIndex), GetSymbolAt(ReelStartIndex + 1), GetSymbolAt(ReelStartIndex + 2) }; }
 	FORCEINLINE void ReelStep() { ReelStartIndex = (ReelStartIndex + 1) % GetReelSize(); }
+	FORCEINLINE void ResetStartIndex() { ReelStartIndex = 0; }
 };
 
 UCLASS()
@@ -49,14 +52,20 @@ public:
 
 	virtual void InteractAction() override;
 	virtual void SetBet(int32 PlayerBet) override;
+	virtual void SetPlayerLuck(int32 PlayerLuck) override;
 	virtual int32 GetWinnings() const override;
 	virtual EGameState GetGameState() const override;
 
 protected:
 	virtual void BeginPlay() override;
 
-	FString SymbolToString(ESlotSymbols ReelSymbols);
+	//Predetermined result functions
 
+	uint8 RollWin();
+	ESlotSymbols RollPredeterminedSymbol();
+	void GeneratePredeterminedWin();
+
+	FString SymbolToString(ESlotSymbols ReelSymbols);
 	void StartSpin();
 	void TickSpinAllReels();
 	void OnSpinComplete();
@@ -68,6 +77,7 @@ protected:
 	void ClearGame();
 
 private:
+
 	//Slot basic settings and defaults
 
 	UPROPERTY(EditInstanceOnly, Category = "Game Settings | Defaults")
@@ -91,6 +101,9 @@ private:
 	UPROPERTY(VisibleAnywhere, Category = "Game Settings | Defaults")
 	TArray<uint8> SpinSteps;
 
+	UPROPERTY()
+	uint8 TargetStepsToStop[3] = { 0,0,0 };
+
 	TArray<bool> ReelShouldSpin;
 	uint8 GlobalSpinTick = 0;
 	uint8 MaxSpinStepsPerReel = FMath::RandRange(MinimumSpins, MaximumSpins);
@@ -99,29 +112,42 @@ private:
 	FTimerHandle ReelSpinTimerHandle;
 
 	//Symbol Weights 
+
 	TArray<ESlotSymbols> WeightedSymbolPool;
-	TArray<ESlotSymbols> AllSlotSymbols;
 	
 	UPROPERTY(EditAnywhere, Category = "Game Settings | Probabilities")
-	uint8 CherryProbabality = 3;
+	uint8 NumOfCherries = 3;
 
 	UPROPERTY(EditAnywhere, Category = "Game Settings | Probabilities")
-	uint8 LemonProbabality = 3;
+	uint8 NumOfLemons = 3;
 
 	UPROPERTY(EditAnywhere, Category = "Game Settings | Probabilities")
-	uint8 WatermelonProbabality = 3;
+	uint8 NumOfWatermelons = 3;
 
 	UPROPERTY(EditAnywhere, Category = "Game Settings | Probabilities")
-	uint8 StarProbabality = 3;
+	uint8 NumOfStars = 3;
 
 	UPROPERTY(EditAnywhere, Category = "Game Settings | Probabilities")
-	uint8 BellProbabality = 2;
+	uint8 NumOfBells = 2;
 
 	UPROPERTY(EditAnywhere, Category = "Game Settings | Probabilities")
-	uint8 DiamondProbabality = 2;
+	uint8 NumOfDiamonds = 2;
 	
 	UPROPERTY(EditAnywhere, Category = "Game Settings | Probabilities")
-	uint8 SevenProbabality = 2;
+	uint8 NumOfSevens = 2;
+
+	//Win Probabilities
+
+	UPROPERTY(VisibleInstanceOnly, Category = "Game Settings | Probabilities")
+	ESlotSymbols SymbolToChase;
+
+	UPROPERTY(EditAnywhere, Category = "Game Settings | Probabilities")
+	TMap<ESlotSymbols, float> BaseProbabilities;
+
+	UPROPERTY(EditAnywhere, Category = "Game Settings | Probabilities")
+	float NoWinChance = 0.8f;
+
+	float NormalizedPlayerLuck;
 
 	//Payouts
 
@@ -140,6 +166,9 @@ private:
 
 	UPROPERTY(VisibleAnywhere, Category = "Game Settings | Defaults")
 	int32 Bet = 0;
+
+	UPROPERTY(VisibleAnywhere, Category = "Game Settings | Defaults")
+	int32 Luck = 0;
 
 	//HUD
 

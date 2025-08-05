@@ -17,13 +17,13 @@ ASlotMachine::ASlotMachine()
 	SlotInterface = CreateDefaultSubobject<USlotInterfaceComponent>(TEXT("Slot Interface"));
 	SlotInterface->SetupAttachment(GetRootComponent());
 
-	InitializeSymbolList(WeightedSymbolPool, ESlotSymbols::ESS_Cherry, CherryProbabality);
-	InitializeSymbolList(WeightedSymbolPool, ESlotSymbols::ESS_Lemon, LemonProbabality);
-	InitializeSymbolList(WeightedSymbolPool, ESlotSymbols::ESS_Watermelon, WatermelonProbabality);
-	InitializeSymbolList(WeightedSymbolPool, ESlotSymbols::ESS_Star, StarProbabality);
-	InitializeSymbolList(WeightedSymbolPool, ESlotSymbols::ESS_Bell, BellProbabality);
-	InitializeSymbolList(WeightedSymbolPool, ESlotSymbols::ESS_Diamond, DiamondProbabality);
-	InitializeSymbolList(WeightedSymbolPool, ESlotSymbols::ESS_Seven, SevenProbabality);
+	InitializeSymbolList(WeightedSymbolPool, ESlotSymbols::ESS_Cherry, NumOfCherries);
+	InitializeSymbolList(WeightedSymbolPool, ESlotSymbols::ESS_Lemon, NumOfLemons);
+	InitializeSymbolList(WeightedSymbolPool, ESlotSymbols::ESS_Watermelon, NumOfWatermelons);
+	InitializeSymbolList(WeightedSymbolPool, ESlotSymbols::ESS_Star, NumOfStars);
+	InitializeSymbolList(WeightedSymbolPool, ESlotSymbols::ESS_Bell, NumOfBells);
+	InitializeSymbolList(WeightedSymbolPool, ESlotSymbols::ESS_Diamond, NumOfDiamonds);
+	InitializeSymbolList(WeightedSymbolPool, ESlotSymbols::ESS_Seven, NumOfSevens);
 
 	Payouts = {
 		{ESlotSymbols::ESS_Seven,	  100},
@@ -35,32 +35,23 @@ ASlotMachine::ASlotMachine()
 		{ESlotSymbols::ESS_Cherry,      2}
 	};
 
-	AllSlotSymbols = {
-		ESlotSymbols::ESS_Cherry,
-		ESlotSymbols::ESS_Lemon,
-		ESlotSymbols::ESS_Watermelon,
-		ESlotSymbols::ESS_Star,
-		ESlotSymbols::ESS_Bell,
-		ESlotSymbols::ESS_Diamond,
-		ESlotSymbols::ESS_Seven
+	BaseProbabilities = {
+		{ESlotSymbols::ESS_Cherry,		0.25f},
+		{ESlotSymbols::ESS_Lemon,	    0.18f},
+		{ESlotSymbols::ESS_Watermelon,  0.16f},
+		{ESlotSymbols::ESS_Bell,	    0.14f},
+		{ESlotSymbols::ESS_Star,		0.12f},
+		{ESlotSymbols::ESS_Diamond,		0.10f},
+		{ESlotSymbols::ESS_Seven,		0.05f},
 	};
 
-	Algo::RandomShuffle(AllSlotSymbols);
 	Algo::RandomShuffle(WeightedSymbolPool);
-
-	for (const ESlotSymbols& Symbol : AllSlotSymbols)
-	{
-		int32 InsertIndex = FMath::RandRange(0, WeightedSymbolPool.Num());
-		WeightedSymbolPool.Insert(Symbol, InsertIndex);
-	}
-
-	TArray<ESlotSymbols> ShuffledPool = WeightedSymbolPool;
-	Algo::RandomShuffle(ShuffledPool);
 
 	for (int Col = 0; Col < NumOfLines; Col++)
 	{
 		Reels.Emplace(FReel(NumOfRows));
-		Reels[Col].InitializeReel(ShuffledPool);
+		Reels[Col].InitializeReel(WeightedSymbolPool);
+		
 	}
 
 }
@@ -74,7 +65,7 @@ void ASlotMachine::InteractAction()
 	
 	if (GameState == EGameState::EGS_Playing)
 	{
-		StartSpin();
+		GeneratePredeterminedWin();
 	}
 
 	if (GameState == EGameState::EGS_GameDone)
@@ -87,6 +78,12 @@ void ASlotMachine::InteractAction()
 void ASlotMachine::SetBet(int32 PlayerBet)
 {
 	Bet = PlayerBet;
+}
+
+void ASlotMachine::SetPlayerLuck(int32 PlayerLuck)
+{
+	Luck = PlayerLuck;
+	NormalizedPlayerLuck = FMath::Clamp(Luck / 10.f, 0.0f, 1.0f);
 }
 
 int32 ASlotMachine::GetWinnings() const
@@ -104,6 +101,79 @@ void ASlotMachine::BeginPlay()
 	Super::BeginPlay();
 	Tags.Add("Game");
 	Tags.Add("HoldInteract");
+}
+
+uint8 ASlotMachine::RollWin()
+{
+	NoWinChance = 0.8f - (NormalizedPlayerLuck * 0.6f); //For Luck = 10 -> 20% no win chance
+
+	float Roll = FMath::RandRange(0.0f, 1.f);
+	if (Roll < NoWinChance) 
+		return 0;
+	else 
+		return 3;
+}
+
+ESlotSymbols ASlotMachine::RollPredeterminedSymbol()
+{
+	TMap<ESlotSymbols, float> AdjustedProbabilities = BaseProbabilities;
+
+	AdjustedProbabilities[ESlotSymbols::ESS_Seven]		+= NormalizedPlayerLuck * 0.10f;
+	AdjustedProbabilities[ESlotSymbols::ESS_Diamond]	+= NormalizedPlayerLuck * 0.08f;
+	AdjustedProbabilities[ESlotSymbols::ESS_Star]		+= NormalizedPlayerLuck * 0.07f;
+
+	AdjustedProbabilities[ESlotSymbols::ESS_Watermelon] -= NormalizedPlayerLuck * 0.05f;
+	AdjustedProbabilities[ESlotSymbols::ESS_Lemon]		-= NormalizedPlayerLuck * 0.07f;
+	AdjustedProbabilities[ESlotSymbols::ESS_Cherry]		-= NormalizedPlayerLuck * 0.10f;
+
+	for (auto& Pair : AdjustedProbabilities)
+	{
+		Pair.Value = FMath::Clamp(Pair.Value, 0.01f, 1.0f);
+	}
+
+	float Total = 0.f;
+
+	for (auto& Pair : AdjustedProbabilities)
+	{
+		Total += Pair.Value;
+	}
+
+	float R = FMath::RandRange(0.01f, Total);
+	float Accumulator = 0.0f;
+
+	for (auto& Pair : AdjustedProbabilities)
+	{
+		Accumulator += Pair.Value;
+		if (R <= Accumulator)
+		{
+			return Pair.Key;
+		}
+	}
+
+	return ESlotSymbols::ESS_Cherry;
+}
+
+void ASlotMachine::GeneratePredeterminedWin()
+{
+	uint8 MatchCount = RollWin();
+	ESlotSymbols WinningSymbol = RollPredeterminedSymbol();
+
+	if (MatchCount != 3)
+	{
+		SymbolToChase = ESlotSymbols::ESS_Invalid;
+		GEngine->AddOnScreenDebugMessage(1, 15.f, FColor::Blue, TEXT("No Match"));
+		StartSpin();
+	}
+
+	else if (MatchCount == 3)
+	{
+		SymbolToChase = WinningSymbol;
+		GEngine->AddOnScreenDebugMessage(1, 15.f, FColor::Blue, TEXT("Match!"));
+		GEngine->AddOnScreenDebugMessage(1, 15.f, FColor::Yellow, FString::Printf(TEXT("Winning Symbol: %s"), *SymbolToString(WinningSymbol)));
+
+		StartSpin();
+	}
+
 }
 
 FString ASlotMachine::SymbolToString(ESlotSymbols Symbol)
@@ -126,12 +196,12 @@ void ASlotMachine::StartSpin()
 	//Reset spin state
 	SpinSteps.SetNum(NumOfLines);
 	ReelShouldSpin.SetNum(NumOfLines);
-	GlobalSpinTick = 0;
 
 	for (int i = 0; i < NumOfLines; i++)
 	{
 		SpinSteps[i] = 0;
 		ReelShouldSpin[i] = true;
+		TargetStepsToStop[i] = 0;
 	}
 
 	GetWorld()->GetTimerManager().SetTimer(ReelSpinTimerHandle, this, &ASlotMachine::TickSpinAllReels, 0.2f, true);
@@ -195,11 +265,35 @@ void ASlotMachine::TickSpinAllReels()
 		}
 
 		//Check if reel should stop
-		if (SpinSteps[Col] >= MaxSpinStepsPerReel + (Col * DelayBetweenStops))
+		if (SymbolToChase == ESlotSymbols::ESS_Invalid)
 		{
-			ReelShouldSpin[Col] = false;
+			GEngine->AddOnScreenDebugMessage(1, 15.f, FColor::Blue, TEXT("No Symbol To chase"));
+
+			if (SpinSteps[Col] >= MaxSpinStepsPerReel + (Col * DelayBetweenStops))
+			{
+				ReelShouldSpin[Col] = false;
+			}
 		}
 
+		else if (SymbolToChase != ESlotSymbols::ESS_Invalid)
+		{
+			GEngine->AddOnScreenDebugMessage(2, 15.f, FColor::Yellow, FString::Printf(TEXT("Chasing Symbol: %s"), *SymbolToString(SymbolToChase)));
+
+			uint8 DefaultSteps = MaxSpinStepsPerReel + (Col * DelayBetweenStops);
+			if (TargetStepsToStop[Col] == 0 && SpinSteps[Col] >= DefaultSteps)
+			{
+				uint8 StepsToSymbol = Reels[Col].GetStepsToParticularSymbol(SymbolToChase, SpinSteps[Col]);
+				TargetStepsToStop[Col] = SpinSteps[Col] + StepsToSymbol;
+				GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Green, FString::Printf(
+					TEXT("TargetStepsToStop[%d] = %d (SpinSteps = %d, StepsToSymbol = %d)"),
+					Col, TargetStepsToStop[Col], SpinSteps[Col], StepsToSymbol));
+			}
+
+			if (TargetStepsToStop[Col] != 0 && SpinSteps[Col] >= TargetStepsToStop[Col])
+			{
+				ReelShouldSpin[Col] = false;
+			}
+		}
 	}
 
 	if (!bAnyReelStillSpinning)
@@ -231,7 +325,6 @@ void ASlotMachine::OnSpinComplete()
 		GEngine->AddOnScreenDebugMessage(-1, 10.f, FColor::Blue, Line);
 		
 	}
-	GEngine->AddOnScreenDebugMessage(-1, 3.0f, FColor::Green, TEXT("Spin Complete!"));
 	TotalPayout = CalculatePayout(Bet);
 	ClearGame();
 }
@@ -282,6 +375,9 @@ bool ASlotMachine::IsThreeOfAKind(ESlotSymbols SymbolA, ESlotSymbols SymbolB, ES
 void ASlotMachine::ClearGame()
 {
 	Bet = 0;
+	Reels[0].ResetStartIndex();
+	Reels[1].ResetStartIndex();
+	Reels[2].ResetStartIndex();
 
 	if (TotalPayout == 0)
 	{
@@ -292,25 +388,23 @@ void ASlotMachine::ClearGame()
 
 void FReel::InitializeReel(const TArray<ESlotSymbols>& WeightedSymbols)
 {
-	TArray<ESlotSymbols> ReelSymbols = WeightedSymbols;
+	Rows = WeightedSymbols;
+	Algo::RandomShuffle(Rows);
+}
 
-	//Shuffle once
-	Algo::RandomShuffle(ReelSymbols);
+uint8 FReel::GetStepsToParticularSymbol(ESlotSymbols SymbolLookingFor, uint8 StepsUntilNow) const
+{
+	const uint8 MiddleRowOffset = 1;
+	uint8 VisibleSymbolsIndex = 0;
 
-	ESlotSymbols LastSymbol = ESlotSymbols::ESS_Invalid;
-	for (int Row = 0; Row < ReelRows; Row++)
+	for (int R = 0; R < ReelRows * 2; R++)
 	{
-
-		//Try to find different symbol from the last one
-		for (int Attempt = 0; Attempt < 5; Attempt++)
+		VisibleSymbolsIndex = StepsUntilNow + R + MiddleRowOffset;
+		ESlotSymbols Symbol = GetSymbolAt(VisibleSymbolsIndex);
+		if (Symbol == SymbolLookingFor)
 		{
-			int Index = FMath::RandRange(0, WeightedSymbols.Num() - 1);
-			if (ReelSymbols[Index] != LastSymbol)
-			{
-				Rows[Row] = WeightedSymbols[Index];
-				LastSymbol = Rows[Row];
-				break;
-			}
+			return R;
 		}
 	}
+	return ReelRows;
 }

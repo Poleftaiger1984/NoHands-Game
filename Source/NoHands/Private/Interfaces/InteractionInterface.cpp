@@ -15,6 +15,10 @@ void IInteractionInterface::SetBet(int32 PlayerBet)
 
 }
 
+void IInteractionInterface::SetPlayerLuck(int32 PlayerLuck)
+{
+}
+
 int32 IInteractionInterface::GetWinnings() const
 {
 	return int32();

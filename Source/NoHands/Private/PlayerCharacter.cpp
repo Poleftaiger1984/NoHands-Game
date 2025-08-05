@@ -273,6 +273,7 @@ void APlayerCharacter::OnInteractHoldTriggered()
 					Attributes->LoseAttribute(EBoostType::EBT_Money, GameBet);
 					HUDOverlay->SetMoney(Attributes->GetMoney());
 					Playable->SetBet(GameBet);
+					Playable->SetPlayerLuck(Attributes->GetLuck());
 					Playable->InteractAction();
 				}
 				if (GameState == EGameState::EGS_GameDone)

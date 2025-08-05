@@ -47,6 +47,9 @@ private:
 	UPROPERTY(EditAnywhere, Category = "Actor Attributes")
 	float Money = 0.f;
 
+	UPROPERTY(EditAnywhere, Category = "Actor Attributes")
+	int32 Luck = 0.f;
+
 public:
 	FORCEINLINE float GetHealthPercent() const { return Health / MaxHealth; }
 	FORCEINLINE float GetStaminaPercent() const { return Stamina / MaxStamina; }
@@ -54,4 +57,5 @@ public:
 	FORCEINLINE float GetStamina() const { return Stamina; }
 	FORCEINLINE float GetMaxStamina() const { return MaxStamina; }
 	FORCEINLINE float GetMoney() const { return Money; }
+	FORCEINLINE int GetLuck() const { return Luck; }
 };
