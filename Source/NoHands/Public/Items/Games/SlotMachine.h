@@ -1,0 +1,179 @@
+// Fill out your copyright notice in the Description page of Project Settings.
+
+#pragma once
+
+#include "CoreMinimal.h"
+#include "Items/Playable.h"
+#include "SlotMachine.generated.h"
+
+enum class ESlotSymbols : uint8;
+class USlotInterfaceComponent;
+
+USTRUCT()
+struct FReel
+{
+	GENERATED_BODY()
+
+public:
+	FReel() {}
+	FReel(uint8 NumOfRows) : ReelRows(NumOfRows)
+	{ 
+		Rows.SetNum(ReelRows); 
+		ReelStartIndex = 0;
+	}
+
+	void InitializeReel(const TArray<ESlotSymbols>& WeightedSymbols);
+	uint8 GetStepsToParticularSymbol(ESlotSymbols SymbolLookingFor, uint8 StepsUntilNow) const;
+
+
+private:
+
+	uint8 ReelRows;	
+	uint8 ReelStartIndex;
+	TArray<ESlotSymbols> Rows;
+
+public:
+	FORCEINLINE TArray<ESlotSymbols> GetReelSymbols() const { return Rows; }
+	FORCEINLINE int GetReelSize() const { return Rows.Num(); }
+	FORCEINLINE ESlotSymbols GetSymbolAt(int Index) const { return Rows[Index % GetReelSize()]; }
+	FORCEINLINE int GetStartIndex() const { return ReelStartIndex; }
+	FORCEINLINE TArray<ESlotSymbols> GetVisibleWindow() const { return { GetSymbolAt(ReelStartIndex), GetSymbolAt(ReelStartIndex + 1), GetSymbolAt(ReelStartIndex + 2) }; }
+	FORCEINLINE void ReelStep() { ReelStartIndex = (ReelStartIndex + 1) % GetReelSize(); }
+	FORCEINLINE void ResetStartIndex() { ReelStartIndex = 0; }
+};
+
+UCLASS()
+class NOHANDS_API ASlotMachine : public APlayable
+{
+	GENERATED_BODY()
+	
+public:
+	ASlotMachine();
+
+	virtual void InteractAction() override;
+	virtual void SetBet(int32 PlayerBet) override;
+	virtual void SetPlayerLuck(int32 PlayerLuck) override;
+	virtual int32 GetWinnings() const override;
+	virtual EGameState GetGameState() const override;
+
+protected:
+	virtual void BeginPlay() override;
+
+	//Predetermined result functions
+
+	uint8 RollWin();
+	ESlotSymbols RollPredeterminedSymbol();
+	void GeneratePredeterminedWin();
+
+	FString SymbolToString(ESlotSymbols ReelSymbols);
+	void StartSpin();
+	void TickSpinAllReels();
+	void OnSpinComplete();
+	void InitializeSymbolList(TArray<ESlotSymbols>& OutArray, ESlotSymbols Symbol, uint8 Weight);
+
+	int32 CalculatePayout(int32 BetInserted);
+	bool IsThreeOfAKind(ESlotSymbols SymbolA, ESlotSymbols SymbolB, ESlotSymbols SymbolC);
+
+	void ClearGame();
+
+private:
+
+	//Slot basic settings and defaults
+
+	UPROPERTY(EditInstanceOnly, Category = "Game Settings | Defaults")
+	EGameState GameState;
+
+	UPROPERTY(VisibleAnywhere, Category = "Game Settings | Defaults")
+	uint8 NumOfLines = 3;
+
+	UPROPERTY(EditAnywhere, Category = "Game Settings | Defaults")
+	uint8 NumOfRows = 18; // !!To keep probabilities the same if you plan to alter the number of rows aka the reel length change the probabilties too!!
+
+	UPROPERTY(EditAnywhere, Category = "Game Settings | Defaults")
+	uint8 MinimumSpins = 30;
+
+	UPROPERTY(EditAnywhere, Category = "Game Settings | Defaults")
+	uint8 MaximumSpins = 50;
+
+	UPROPERTY(EditAnywhere, Category = "Game Settings | Defaults")
+	float DelayBetweenStops = 10.f;
+
+	UPROPERTY(VisibleAnywhere, Category = "Game Settings | Defaults")
+	TArray<uint8> SpinSteps;
+
+	UPROPERTY()
+	uint8 TargetStepsToStop[3] = { 0,0,0 };
+
+	TArray<bool> ReelShouldSpin;
+	uint8 GlobalSpinTick = 0;
+	uint8 MaxSpinStepsPerReel = FMath::RandRange(MinimumSpins, MaximumSpins);
+
+	TArray<FReel> Reels;
+	FTimerHandle ReelSpinTimerHandle;
+
+	//Symbol Weights 
+
+	TArray<ESlotSymbols> WeightedSymbolPool;
+	
+	UPROPERTY(EditAnywhere, Category = "Game Settings | Probabilities")
+	uint8 NumOfCherries = 3;
+
+	UPROPERTY(EditAnywhere, Category = "Game Settings | Probabilities")
+	uint8 NumOfLemons = 3;
+
+	UPROPERTY(EditAnywhere, Category = "Game Settings | Probabilities")
+	uint8 NumOfWatermelons = 3;
+
+	UPROPERTY(EditAnywhere, Category = "Game Settings | Probabilities")
+	uint8 NumOfStars = 3;
+
+	UPROPERTY(EditAnywhere, Category = "Game Settings | Probabilities")
+	uint8 NumOfBells = 2;
+
+	UPROPERTY(EditAnywhere, Category = "Game Settings | Probabilities")
+	uint8 NumOfDiamonds = 2;
+	
+	UPROPERTY(EditAnywhere, Category = "Game Settings | Probabilities")
+	uint8 NumOfSevens = 2;
+
+	//Win Probabilities
+
+	UPROPERTY(VisibleInstanceOnly, Category = "Game Settings | Probabilities")
+	ESlotSymbols SymbolToChase;
+
+	UPROPERTY(EditAnywhere, Category = "Game Settings | Probabilities")
+	TMap<ESlotSymbols, float> BaseProbabilities;
+
+	UPROPERTY(EditAnywhere, Category = "Game Settings | Probabilities")
+	float NoWinChance = 0.8f;
+
+	float NormalizedPlayerLuck;
+
+	//Payouts
+
+	int32 TotalPayout;
+
+	TArray<TArray<FIntPoint>> PayLine = {
+		{{1, 0}, {1, 1}, {1, 2}}, //Middle Row
+	};
+
+	UPROPERTY()
+	TArray<ESlotSymbols> WinRow;
+
+	UPROPERTY()
+	TMap<ESlotSymbols, int32> Payouts;
+
+	//Player input
+
+	UPROPERTY(VisibleAnywhere, Category = "Game Settings | Defaults")
+	int32 Bet = 0;
+
+	UPROPERTY(VisibleAnywhere, Category = "Game Settings | Defaults")
+	int32 Luck = 0;
+
+	//HUD
+
+	UPROPERTY(VisibleAnywhere)
+	TObjectPtr<USlotInterfaceComponent> SlotInterface;
+
+};

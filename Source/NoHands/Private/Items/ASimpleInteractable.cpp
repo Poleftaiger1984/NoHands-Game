@@ -3,6 +3,7 @@
 
 #include "Items/ASimpleInteractable.h"
 #include "Components/InterctableOverlayComponent.h"
+#include <NoHands/NoHands.h>
 
 AASimpleInteractable::AASimpleInteractable()
 {
@@ -17,6 +18,7 @@ AASimpleInteractable::AASimpleInteractable()
 	InteractionOverlay->SetupAttachment(GetRootComponent());
 
 	ItemMesh->SetSimulatePhysics(false);
+	ItemMesh->SetCustomDepthStencilValue(CUSTOM_DEPTH_RED);
 	ItemName = "Default";
 
 }
@@ -26,41 +28,46 @@ void AASimpleInteractable::Tick(float DeltaTime)
 
 }
 
-void AASimpleInteractable::UpdateOverlay(const FRotator& NewRotation, const FVector& NewLocation, bool bIsBeingLookedAt)
+void AASimpleInteractable::UpdateOverlayAlignment(const FRotator& NewRotation, const FVector& NewLocation)
 {
-	if (bIsBeingLookedAt && InteractionOverlay)
+	if (bIsOverlayActive && InteractionOverlay)
 	{
-		ShowOverlay();
 		InteractionOverlay->SetRotation(NewRotation);
 		InteractionOverlay->SetLocation(NewLocation);
 	}
-	else
+	
+}
+
+FName AASimpleInteractable::GetName() const
+{
+	return ItemName;
+}
+
+void AASimpleInteractable::EnableHighlight()
+{
+	if (InteractionOverlay)
 	{
-		HideOverlay();
+		bIsOverlayActive = true;
+		InteractionOverlay->SetItemName(ItemName);
+		InteractionOverlay->DisplayItemName();
+		InteractionOverlay->SetVisibility(true);
 	}
+	ItemMesh->SetRenderCustomDepth(true);
+}
+
+void AASimpleInteractable::DisableHighlight()
+{
+	if (InteractionOverlay)
+	{
+		bIsOverlayActive = false;
+		InteractionOverlay->SetVisibility(false);
+	}
+	ItemMesh->SetRenderCustomDepth(false);
 }
 
 void AASimpleInteractable::BeginPlay()
 {
 	Super::BeginPlay();	
 	Tags.Add(TEXT("Interactable"));
-}
-
-void AASimpleInteractable::HideOverlay()
-{
-	if (InteractionOverlay)
-	{
-		InteractionOverlay->SetVisibility(false);
-	}
-}
-
-void AASimpleInteractable::ShowOverlay()
-{
-	if (InteractionOverlay)
-	{
-		InteractionOverlay->SetItemName(ItemName);
-		InteractionOverlay->DisplayItemName();
-		InteractionOverlay->SetVisibility(true);
-	}
 }
 

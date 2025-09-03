@@ -17,13 +17,13 @@ class NOHANDS_API AASimpleInteractable : public AActor, public IInteractionInter
 public:	
 	AASimpleInteractable();
 	virtual void Tick(float DeltaTime) override;
-	void UpdateOverlay(const FRotator& NewRotation, const FVector& NewLocation, bool bIsBeingLookedAt);
+	virtual void UpdateOverlayAlignment(const FRotator& NewRotation, const FVector& NewLocation) override;
+	virtual FName GetName() const override;
 
 protected:
-	// Called when the game starts or when spawned
+	virtual void EnableHighlight() override;
+	virtual void DisableHighlight() override;
 	virtual void BeginPlay() override;
-	void HideOverlay();
-	void ShowOverlay();
 
 	UPROPERTY(VisibleAnywhere, BlueprintReadOnly)
 	TObjectPtr<UStaticMeshComponent> ItemMesh;
@@ -35,8 +35,9 @@ protected:
 	UPROPERTY(EditDefaultsOnly, Category = "UI")
 	TObjectPtr<UInterctableOverlayComponent> InteractionOverlay;
 
+	bool bIsOverlayActive = false;
+
 public:
 	FORCEINLINE TObjectPtr<UStaticMeshComponent> GetItemMesh() const { return ItemMesh; }
-	FORCEINLINE FName GetItemName() const { return ItemName; }	
 
 };

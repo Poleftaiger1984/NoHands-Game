@@ -29,4 +29,9 @@ public:
 	virtual void SetPlayerLuck(int32 PlayerLuck);
 	virtual int32 GetWinnings() const;
 	virtual EGameState GetGameState() const;
+	virtual FName GetName() const;
+
+	virtual void EnableHighlight() = 0;
+	virtual void DisableHighlight() = 0;
+	virtual void UpdateOverlayAlignment(const FRotator& NewRotation, const FVector& NewLocation) = 0;
 };

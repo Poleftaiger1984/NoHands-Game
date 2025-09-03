@@ -2,9 +2,10 @@
 
 
 #include "Components/AttributeComponent.h"
-#include "CharacterStates.h"
+#include "Characters/CharacterStates.h"
 
 UAttributeComponent::UAttributeComponent()
+	: Health(100.f), MaxHealth(100.f), Stamina(100.f), MaxStamina(100.f)
 {
 	PrimaryComponentTick.bCanEverTick = false;
 }
@@ -20,17 +21,17 @@ void UAttributeComponent::TickComponent(float DeltaTime, ELevelTick TickType, FA
 
 }
 
-void UAttributeComponent::UseStamina(float StaminaCost, float DeltaTime)
+void UAttributeComponent::UseStamina(const float StaminaCost, const float DeltaTime)
 {
 	Stamina = FMath::Clamp(Stamina - StaminaCost * DeltaTime, 0.f, MaxStamina);
 }
 
-void UAttributeComponent::RegenStamina(float DeltaTime)
+void UAttributeComponent::RegenStamina(const float DeltaTime)
 {
 	Stamina = FMath::Clamp(Stamina + StaminaRegenRate * DeltaTime, 0.f, MaxStamina);
 }
 
-void UAttributeComponent::AddBoost(EBoostType TypeOfBoost, float BoostAmount)
+void UAttributeComponent::AddBoost(const EBoostType TypeOfBoost, const float BoostAmount)
 {
 	switch (TypeOfBoost)
 	{
@@ -47,6 +48,11 @@ void UAttributeComponent::AddBoost(EBoostType TypeOfBoost, float BoostAmount)
 	case EBoostType::EBT_Money:
 	{
 		Money += BoostAmount;
+		break;
+	}
+	case EBoostType::EBT_Luck:
+	{
+		Luck += static_cast<int>(BoostAmount);
 		break;
 	}
 	default:
@@ -73,6 +79,11 @@ void UAttributeComponent::LoseAttribute(EBoostType TypeOfBoost, float AmountToLo
 		Money -= AmountToLose;
 		break;
 	}
+	case EBoostType::EBT_Luck:
+	{
+		Luck -= static_cast<int>(AmountToLose);
+		break;
+	}	
 	default:
 		break;
 	}

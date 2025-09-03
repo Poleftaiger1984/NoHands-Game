@@ -29,3 +29,8 @@ EGameState IInteractionInterface::GetGameState() const
 	return EGameState();
 }
 
+FName IInteractionInterface::GetName() const
+{
+	return FName();
+}
+
